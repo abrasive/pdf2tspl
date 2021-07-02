@@ -2,7 +2,7 @@
 
 import tempfile
 import subprocess
-from PIL import Image, ImageOps
+from PIL import Image
 
 def convert_pdf(pdfname, args=[]):
     pbmfile = tempfile.NamedTemporaryFile(suffix='.pbm')
@@ -30,26 +30,23 @@ def convert_pdf_scaled(pdfname, max_width, max_height):
 
     return im
 
-def label_to_command(image, labelwidth_mm=100, labelheight_mm=150, dpi=203):
-    "Centre the image on the label and generate a print command"
-    labelwidth = labelwidth_mm / 25.4 * dpi
-    labelheight = labelheight_mm / 25.4 * dpi
+def pdf2tspl(filename, labelwidth_mm=100, labelheight_mm=150, dpi=203):
+    labelwidth = int(round(labelwidth_mm / 25.4 * dpi))
+    labelheight = int(round(labelheight_mm / 25.4 * dpi))
 
-    assert image.size[0] <= labelwidth + 5
-    assert image.size[1] <= labelheight + 5
+    image = convert_pdf_scaled(filename, labelwidth, labelheight)
 
     paste_x = (labelwidth - image.size[0]) // 2
     paste_y = (labelheight - image.size[1]) // 2
     row_bytes = (image.size[0] + 7) // 8
 
-    command = b"SIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, image.size[1])
+    command = b"\r\n\r\nSIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, image.size[1])
     command += image.tobytes()
     command += b"\r\nPRINT 1,1\r\n"
     return command
 
 def print_pdf(filename):
-    im = convert_pdf_scaled(filename, 800, 1200)
-    cmd = label_to_command(im)
+    cmd = pdf2tspl(filename)
     with open("/dev/usb/lp0", "r+b") as prn:
         prn.write(cmd)
 
