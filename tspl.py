@@ -25,7 +25,7 @@ def convert_pdf_scaled(pdfname, max_width, max_height):
     args = ['-scale-to-x', str(max_width), '-scale-to-y', str(max_height)]
     im = convert_pdf(pdfname, args)
 
-    assert im.size[0] <= max_width
+    assert im.size[0] <= max_width + 1
     assert im.size[1] <= max_height
 
     return im
@@ -35,20 +35,24 @@ def label_to_command(image, labelwidth_mm=100, labelheight_mm=150, dpi=203):
     labelwidth = labelwidth_mm / 25.4 * dpi
     labelheight = labelheight_mm / 25.4 * dpi
 
-    assert im.size[0] <= labelwidth
-    assert im.size[1] <= labelheight
+    assert image.size[0] <= labelwidth + 5
+    assert image.size[1] <= labelheight + 5
 
-    paste_x = (labelwidth - im.size[0]) // 2
-    paste_y = (labelheight - im.size[1]) // 2
-    row_bytes = (im.size[0] + 7) // 8
+    paste_x = (labelwidth - image.size[0]) // 2
+    paste_y = (labelheight - image.size[1]) // 2
+    row_bytes = (image.size[0] + 7) // 8
 
-    command = b"SIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, im.size[1])
+    command = b"SIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, image.size[1])
     command += image.tobytes()
     command += b"\r\nPRINT 1,1\r\n"
     return command
 
+def print_pdf(filename):
+    im = convert_pdf_scaled(filename, 800, 1200)
+    cmd = label_to_command(im)
+    with open("/dev/usb/lp0", "r+b") as prn:
+        prn.write(cmd)
 
-im = convert_pdf_scaled("test.pdf", 800, 1200)
-cmd = label_to_command(im)
-with open("/dev/usb/lp0", "r+b") as prn:
-    prn.write(cmd)
+if __name__ == "__main__":
+    import sys
+    print_pdf(sys.argv[1])
