@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 
-import tspl
+import pdf2tspl
 import socket
 import logging
 import tempfile
+import sys
+
+if len(sys.argv) != 2:
+    print("Usage: %s /dev/path/to/printer" % sys.argv[0])
+    sys.exit(1)
+
+printer = sys.argv[1]
+open(printer, 'wb').close()
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -37,7 +45,10 @@ def accept_one_job(sock):
     with tempfile.NamedTemporaryFile(suffix=".pdf") as pdffile:
         pdffile.write(pdf_data)
         pdffile.flush()
-        tspl.print_pdf(pdffile.name)
+        tspl = pdf2tspl.pdf2tspl(pdffile.name)
+
+    with open(printer, 'wb') as fp:
+        fp.write(tspl)
 
     logging.info('Job complete')
 

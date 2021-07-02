@@ -43,7 +43,7 @@ def convert_pdf_scaled(pdfname, max_width, max_height):
 
     return im
 
-def pdf2tspl(filename, labelwidth_mm=100, labelheight_mm=150, dpi=203):
+def pdf2tspl(filename, labelwidth_mm=100, labelheight_mm=150, dpi=203.2):
     labelwidth = int(round(labelwidth_mm / 25.4 * dpi))
     labelheight = int(round(labelheight_mm / 25.4 * dpi))
 
@@ -53,16 +53,30 @@ def pdf2tspl(filename, labelwidth_mm=100, labelheight_mm=150, dpi=203):
     paste_y = (labelheight - image.height) // 2
     row_bytes = (image.width + 7) // 8
 
-    command = b"\r\n\r\nSIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, image.height)
-    command += image.data
-    command += b"\r\nPRINT 1,1\r\n"
-    return command
-
-def print_pdf(filename):
-    cmd = pdf2tspl(filename)
-    with open("/dev/usb/lp0", "r+b") as prn:
-        prn.write(cmd)
+    tspl = b"\r\n\r\nSIZE %d mm,%d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, labelheight_mm, paste_x, paste_y, row_bytes, image.height)
+    tspl += image.data
+    tspl += b"\r\nPRINT 1,1\r\n"
+    return tspl
 
 if __name__ == "__main__":
+    import argparse
     import sys
-    print_pdf(sys.argv[1])
+    parser = argparse.ArgumentParser(description='Convert a PDF to TSPL to send to a label printer.')
+    parser.add_argument('pdf_file', help='The PDF to convert.')
+    parser.add_argument('tspl_file', help='The file or device to write the TSPL code to. Can be a printer device eg. /dev/usb/lp0, or specify "-" to write to stdout.')
+
+    parser.add_argument('-x', '--width', type=int, default=100, help='The width of the label, in millimetres.')
+    parser.add_argument('-y', '--height', type=int, default=150, help='The height of the label, in millimetres.')
+    parser.add_argument('-d', '--dpi', type=float, default=203.2, help='Resolution of the printer. Defaults to 8 dots per mm (203.2 dpi)')
+    args = parser.parse_args()
+
+    tspl = pdf2tspl(args.pdf_file,
+                    labelwidth_mm=args.width,
+                    labelheight_mm=args.height,
+                    dpi=args.dpi)
+
+    if args.tspl_file == '-':
+        sys.stdout.buffer.write(tspl)
+    else:
+        with open(args.tspl_file, 'wb') as fp:
+            fp.write(tspl)
