@@ -2,17 +2,30 @@
 
 import tempfile
 import subprocess
-from PIL import Image
+import dataclasses
+
+@dataclasses.dataclass
+class Image:
+    width: int
+    height: int
+    data: bytes
 
 def convert_pdf(pdfname, args=[]):
-    pbmfile = tempfile.NamedTemporaryFile(suffix='.pbm')
-    subprocess.check_call(["pdftoppm", "-mono", "-singlefile"] + args + [pdfname, pbmfile.name.removesuffix('.pbm')])
+    with tempfile.NamedTemporaryFile(suffix='.pbm') as pbmfile:
+        subprocess.check_call(["pdftoppm", "-mono", "-singlefile"] + args + [pdfname, pbmfile.name.removesuffix('.pbm')])
 
-    return Image.open(pbmfile)
+        header = pbmfile.readline()
+        if header.strip() != b'P4':
+            raise ValueError("unrecognised image format")
+        width_height = pbmfile.readline().decode('ascii')
+        data = bytes(x ^ 0xff for x in pbmfile.read())
+
+    width, height = map(int, width_height.strip().split())
+    return Image(width, height, data)
 
 def convert_pdf_scaled(pdfname, max_width, max_height):
     im = convert_pdf(pdfname)
-    aspect = im.size[0] / im.size[1]
+    aspect = im.width / im.height
     max_aspect = max_width / max_height
 
     if aspect < max_aspect:
@@ -25,8 +38,8 @@ def convert_pdf_scaled(pdfname, max_width, max_height):
     args = ['-scale-to-x', str(max_width), '-scale-to-y', str(max_height)]
     im = convert_pdf(pdfname, args)
 
-    assert im.size[0] <= max_width + 1
-    assert im.size[1] <= max_height
+    assert im.width <= max_width + 1
+    assert im.height <= max_height
 
     return im
 
@@ -36,12 +49,12 @@ def pdf2tspl(filename, labelwidth_mm=100, labelheight_mm=150, dpi=203):
 
     image = convert_pdf_scaled(filename, labelwidth, labelheight)
 
-    paste_x = (labelwidth - image.size[0]) // 2
-    paste_y = (labelheight - image.size[1]) // 2
-    row_bytes = (image.size[0] + 7) // 8
+    paste_x = (labelwidth - image.width) // 2
+    paste_y = (labelheight - image.height) // 2
+    row_bytes = (image.width + 7) // 8
 
-    command = b"\r\n\r\nSIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, image.size[1])
-    command += image.tobytes()
+    command = b"\r\n\r\nSIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, image.height)
+    command += image.data
     command += b"\r\nPRINT 1,1\r\n"
     return command
 
