@@ -40,8 +40,11 @@ def label_to_command(image, labelwidth=810, labelheight=1200):
     row_bytes = (im.size[0] + 7) // 8
 
     command = b"CLS\r\nBITMAP %d,%d,%d,%d,0," % (paste_x, paste_y, row_bytes, im.size[1])
+
+    label = Image.new('1', (labelwidth, labelheight))
+    label.paste(image, (paste_x, paste_y))
     command += image.tobytes()
-    command += b"\r\nPRINT 1,1\r\nSOUND 3,200\r\n"
+    command += b"\r\nPRINT 1,1\r\n"
     return command
 
 
