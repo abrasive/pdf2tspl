@@ -30,8 +30,11 @@ def convert_pdf_scaled(pdfname, max_width, max_height):
 
     return im
 
-def label_to_command(image, labelwidth=810, labelheight=1200):
+def label_to_command(image, labelwidth_mm=100, labelheight_mm=150, dpi=203):
     "Centre the image on the label and generate a print command"
+    labelwidth = labelwidth_mm / 25.4 * dpi
+    labelheight = labelheight_mm / 25.4 * dpi
+
     assert im.size[0] <= labelwidth
     assert im.size[1] <= labelheight
 
@@ -39,10 +42,7 @@ def label_to_command(image, labelwidth=810, labelheight=1200):
     paste_y = (labelheight - im.size[1]) // 2
     row_bytes = (im.size[0] + 7) // 8
 
-    command = b"CLS\r\nBITMAP %d,%d,%d,%d,0," % (paste_x, paste_y, row_bytes, im.size[1])
-
-    label = Image.new('1', (labelwidth, labelheight))
-    label.paste(image, (paste_x, paste_y))
+    command = b"SIZE %d mm\r\nCLS\r\nBITMAP %d,%d,%d,%d,0," % (labelwidth_mm, paste_x, paste_y, row_bytes, im.size[1])
     command += image.tobytes()
     command += b"\r\nPRINT 1,1\r\n"
     return command
