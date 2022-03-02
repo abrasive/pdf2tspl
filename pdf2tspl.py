@@ -59,6 +59,7 @@ def pdf2tspl(filename, labelwidth_mm=100, labelheight_mm=150, dpi=203.2):
     return tspl
 
 if __name__ == "__main__":
+    from PyPDF2 import PdfFileWriter, PdfFileReader
     import argparse
     import sys
     parser = argparse.ArgumentParser(description='Convert a PDF to TSPL to send to a label printer.')
@@ -70,13 +71,22 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--dpi', type=float, default=203.2, help='Resolution of the printer. Defaults to 8 dots per mm (203.2 dpi)')
     args = parser.parse_args()
 
-    tspl = pdf2tspl(args.pdf_file,
-                    labelwidth_mm=args.width,
-                    labelheight_mm=args.height,
-                    dpi=args.dpi)
+    inputpdf = PdfFileReader(open(args.pdf_file, "rb"))
 
-    if args.tspl_file == '-':
-        sys.stdout.buffer.write(tspl)
-    else:
-        with open(args.tspl_file, 'wb') as fp:
-            fp.write(tspl)
+    for i in range(inputpdf.numPages):
+        output = PdfFileWriter()
+        output.addPage(inputpdf.getPage(i))
+        temp_pdf_name = "temp/document-page%s.pdf" % i
+        with open(temp_pdf_name, "wb") as outputStream:
+            output.write(outputStream)
+
+        tspl = pdf2tspl(temp_pdf_name,
+        labelwidth_mm=args.width,
+        labelheight_mm=args.height,
+        dpi=args.dpi)
+
+        if args.tspl_file == '-':
+            sys.stdout.buffer.write(tspl)
+        else:
+            with open(args.tspl_file, 'wb') as fp:
+                fp.write(tspl)
